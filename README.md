@@ -195,28 +195,44 @@ All models use 2 layers (optimal depth from Section 7), hidden dimension of 16, 
 
 ### 8.2 Results Summary
 
-| Architecture | Params | Best Val Acc | Best Test Acc | Training Time |
-|--------------|--------|--------------|---------------|---------------|
-| GCN          | 64,530 | 87.01%       | 86.37%        | ~2.5 min      |
-| GraphSAGE    | 64,530 | TBD          | TBD           | ~2.5 min      |
-| GAT (2 heads)| 65,026 | TBD          | TBD           | ~3.5 min      |
-| GIN          | 66,178 | TBD          | TBD           | ~2.5 min      |
+| Architecture | Params  | Best Val Acc | Best Test Acc | Training Time | Rank |
+|--------------|---------|--------------|---------------|---------------|------|
+| **GraphSAGE**| 128,242 | **87.22%**   | **86.92%**    | ~2.5 min      | 🏆 1 |
+| GAT (2 heads)| 128,326 | 87.01%       | 86.68%        | ~3.5 min      | 2    |
+| GCN          | 64,130  | 87.03%       | 86.50%        | ~2.5 min      | 3    |
+| GIN          | 64,674  | 83.11%       | 83.42%        | ~2.5 min      | 4    |
 
 ### 8.3 Analysis
-**Architecture Trade-offs:**
-- **GCN**: Fast, simple, effective baseline. Works well when all neighbors are equally important.
-- **GraphSAGE**: Similar performance to GCN but more scalable to massive graphs through neighborhood sampling.
-- **GAT**: Attention mechanism allows adaptive weighting of neighbors. Most useful when network contains both informative and noisy edges.
-- **GIN**: Theoretically most expressive but may overfit on smaller graphs without sufficient regularization.
 
-**Community Detection Insights:**
-The high homophily (68%) in our GitHub network means most neighbors are informative, reducing the advantage of attention-based architectures. For heterogeneous or noisy graphs, GAT would likely show larger gains.
+**Key Findings:**
+
+1. **GraphSAGE Wins (86.92% test accuracy)**: Neighborhood sampling with mean aggregation proved most effective for this sparse social network (density 0.0004). The sampling strategy helps handle the large graph efficiently while preserving local structure. GraphSAGE achieves a 0.42% gain over GCN despite similar aggregation principles.
+
+2. **GAT and GCN Perform Similarly (86.68% vs 86.50%)**: The high homophily (68%) means most neighbors share the same label, reducing the benefit of attention mechanisms. Simple mean aggregation (GCN) works nearly as well as learned attention weights (GAT). The 0.18% difference suggests that when neighbors are uniformly informative, attention provides minimal advantage.
+
+3. **GIN Significantly Underperforms (83.42%)**: Despite being the most expressive architecture theoretically (based on Weisfeiler-Lehman test), GIN's complex sum aggregation with MLPs struggles on this high-homophily graph. The 3.5% accuracy gap from GraphSAGE shows that the dataset doesn't require distinguishing subtle graph structures—simple neighborhood averaging suffices. GIN's poor performance confirms that expressive power alone doesn't guarantee success; architecture must match graph properties.
+
+4. **Efficiency vs Performance Trade-off**: GCN achieves 86.50% with only 64K parameters (2.5 min training), while GraphSAGE needs 128K parameters for 0.42% improvement. For production deployment, GCN offers the best speed-accuracy balance—half the parameters, same training time, minimal accuracy sacrifice.
+
+5. **Homophily Explains Everything**: The 68% homophily is the key to understanding these results. When neighbors predominantly share labels, you don't need complex aggregation functions (GIN's MLPs) or adaptive weighting (GAT's attention)—simple averaging captures the signal. This aligns with recent research showing that simpler architectures often outperform complex ones on homophilous graphs.
+
+**Practical Recommendations:**
+- **Best overall performance**: Use GraphSAGE (86.92%) for maximum accuracy on sparse social networks
+- **Best efficiency**: Use GCN (86.50%) when training speed or model size matters—only 0.42% accuracy sacrifice
+- **Avoid GIN**: On high-homophily graphs, GIN's expressiveness becomes a liability, likely causing overfitting to noise
+- **When to use GAT**: Reserve attention mechanisms for heterogeneous or noisy graphs where neighbors have varying relevance
 
 ## 9. Conclusion and Future Work
 Graph-based learning provides meaningful lifts for community detection on GitHub, but architectural choices must be informed by graph topology. Our comprehensive analysis shows:
-1. **Graph properties** (Section 2.5): High homophily explains why GNNs outperform feature-only models
-2. **Over-squashing** (Section 7): Shallow architectures (2 layers) are optimal for sparse social networks
-3. **Architecture comparison** (Section 8): Multiple GNN variants achieve similar performance when graph properties favor simple aggregation
+1. **Graph properties** (Section 2.5): High homophily (68%) explains why GNNs outperform feature-only models by 3.5 percentage points
+2. **Over-squashing** (Section 7): Shallow architectures (2 layers) are optimal for sparse social networks—8-layer models lose 2.07% accuracy
+3. **Architecture comparison** (Section 8): GraphSAGE wins (86.92%), GCN offers best efficiency (86.50% with 64K params), while GIN significantly underperforms (83.42%) on high-homophily graphs
+
+**Final Performance Summary:**
+- Naive Bayes: 44.45% (baseline)
+- Logistic Regression: 83.42% (feature-only)
+- **Best GNN (GraphSAGE): 86.92%** (graph-aware, +3.5 points over LR)
+- Most Efficient GNN (GCN): 86.50% (half the parameters of GraphSAGE)
 
 Future directions include:
 1. Investigating graph rewiring techniques to reduce average path length and alleviate information bottlenecks.
